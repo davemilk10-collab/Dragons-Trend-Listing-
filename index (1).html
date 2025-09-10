@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dragons Trend — Coin Listings</title>
+  <style>
+    body{background:#000;color:#fff;font-family:Arial;margin:0}
+    header{padding:15px;background:#111;color:yellow;display:flex;justify-content:space-between;align-items:center}
+    .container{padding:20px;max-width:1200px;margin:auto}
+    .controls{margin-bottom:15px;display:flex;gap:10px}
+    input,select{padding:8px;border-radius:6px;border:none}
+    .project-card{background:#fff;color:#000;padding:15px;border-radius:10px;margin-bottom:15px;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+    .proj-head{display:flex;justify-content:space-between;align-items:center}
+    .proj-logo{width:60px;height:60px;border-radius:50%;overflow:hidden;margin-right:10px;display:flex;align-items:center;justify-content:center;background:#eee}
+    .proj-logo img{width:100%;height:100%;object-fit:cover}
+    .stats{display:flex;gap:10px;margin:8px 0;flex-wrap:wrap}
+    .stat{background:#f2f2f2;padding:6px 10px;border-radius:6px;font-size:13px}
+    .vote-btn{padding:6px 12px;background:yellow;border:none;border-radius:6px;cursor:pointer;font-weight:bold}
+    iframe{width:100%;height:220px;border:0;border-radius:8px;margin-top:10px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🐉 Dragons Trend — Listings</h1>
+    <button id="connectBtn">Connect Wallet</button>
+  </header>
+
+  <div class="container">
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search project...">
+      <select id="filter">
+        <option value="all">All</option>
+        <option value="premium">Premium</option>
+        <option value="free">Free</option>
+      </select>
+    </div>
+
+    <div id="listings"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'dragonsTrendListings';
+    let listings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+    // Demo preload project
+    if(listings.length === 0){
+      listings = [{
+        id:1,
+        name:"TEG Bot System",
+        type:"premium",
+        dex:"https://dexscreener.com/solana/3Ruw1upwpLUMBSCrZjyWUK4imjCiAa9AbdCczSJaD2Nn",
+        twitter:"https://twitter.com/",
+        telegram:"https://t.me/",
+        logo:"",
+        votes:0
+      }];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(listings));
+    }
+
+    function render(){
+      const search = document.getElementById("search").value.toLowerCase();
+      const filter = document.getElementById("filter").value;
+      const container = document.getElementById("listings");
+      container.innerHTML = "";
+
+      listings.filter(p => 
+        (filter==="all" || p.type===filter) &&
+        (p.name.toLowerCase().includes(search))
+      ).forEach(p=>{
+        const card = document.createElement("div");
+        card.className = "project-card";
+        card.innerHTML = `
+          <div class="proj-head">
+            <div style="display:flex;align-items:center">
+              <div class="proj-logo">${p.logo?`<img src="${p.logo}">`:"🐉"}</div>
+              <h3 style="color:yellow">${p.name}</h3>
+            </div>
+            <button class="vote-btn" onclick="vote(${p.id})">👍 ${p.votes||0}</button>
+          </div>
+          <div class="stats" id="stats-${p.id}"><div class="stat">Loading stats...</div></div>
+          <iframe src="${p.dex}" loading="lazy"></iframe>
+        `;
+        container.appendChild(card);
+        fetchStats(p.dex, `stats-${p.id}`);
+      });
+    }
+
+    async function fetchStats(url, containerId){
+      try{
+        const parts = url.split('/');
+        const chain = parts[3], pair = parts[4];
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair}`);
+        const data = await res.json();
+        const info = data.pairs?data.pairs[0]:null;
+        if(info){
+          document.getElementById(containerId).innerHTML = `
+            <div class="stat">Price: $${info.priceUsd}</div>
+            <div class="stat">MCap: $${info.fdv}</div>
+            <div class="stat">Liquidity: $${info.liquidity.usd}</div>
+            <div class="stat">Vol 24h: $${info.volume.h24}</div>
+          `;
+        }
+      }catch(e){console.error(e);}
+    }
+
+    function vote(id){
+      listings = listings.map(p=>{
+        if(p.id===id) p.votes=(p.votes||0)+1;
+        return p;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(listings));
+      render();
+    }
+
+    document.getElementById("search").addEventListener("input", render);
+    document.getElementById("filter").addEventListener("change", render);
+
+    render();
+  </script>
+</body>
+</html>
